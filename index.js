@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const Joi = require('joi');
 const sequelize = require('./config')
+const { Op } = require('sequelize');
+
 const Emp = require('./Employee');
 const port = 4000;
 const app = express();
@@ -73,7 +75,7 @@ app.get('/get', async (req, res) => {
 
 app.get('/get/:id', async (req, res) => {
     try {
-        
+
         const Employee = await Emp.findByPk(req.params.id);
         res.send(Employee);
     } catch (error) {
@@ -124,9 +126,30 @@ app.post('/login', (req, res) => {
     if (!user) {
         return res.status(401).json({ message: 'Invalid username or password' });
     }
-    
-    const token = jwt.sign({ id: user.EmployeeID, username: user.EmployeeName, email:user.EmployeeEmail}, {secretKey:"hghffhfhkh"}, { expiresIn: '1h' });
+
+    const token = jwt.sign({ id: user.EmployeeID, username: user.EmployeeName, email: user.EmployeeEmail }, { secretKey: "hghffhfhkh" }, { expiresIn: '1h' });
     res.json({ token });
+});
+
+app.get('/employees/search', async (req, res) => {
+    try {
+        const { query } = req.query;
+
+        // Search employees by name or email (case-insensitive)
+        const employees = await Emp.findAll({
+            where: {
+                [Op.or]: [
+                    sequelize.where(sequelize.fn('LOWER', sequelize.col('EmployeeName')), 'LIKE', `%${query.toLowerCase()}%`),
+                    sequelize.where(sequelize.fn('LOWER', sequelize.col('EmployeeEmail')), 'LIKE', `%${query.toLowerCase()}%`),
+                ],
+            },
+        });
+
+        res.json(employees);
+    } catch (error) {
+        console.error('Error searching employees:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
 
